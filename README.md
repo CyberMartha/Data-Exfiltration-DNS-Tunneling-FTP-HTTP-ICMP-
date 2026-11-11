@@ -96,14 +96,33 @@ Attackers frequently abuse File Transfer Protocol (FTP) to move large datasets o
 ---
 
 ### 3. Detection: Application-Layer Exfiltration via HTTP (`MITRE T1048.002`)
-Adversaries frequently disguise data theft as routine web traffic by embedding sensitive files or encoded strings inside outbound HTTP `POST` request bodies.
+Adversaries routinely abuse HTTP to exfiltrate data because web traffic blends into standard enterprise activity and easily traverses perimeter firewalls. Using obfuscation techniques such as Base64 encoding, custom headers, or chunked `POST` uploads, attackers smuggle files out to external hosts. To detect this activity, I correlated high-level web proxy telemetry in **Splunk** (`http_logs`) with deep packet inspection in **Wireshark** (`http_lab.pcap`).
 
-* **Wireshark & Splunk Analysis:**
-  * Filtered outbound web traffic using `http.request.method == "POST"` (and checked high `bytes_out` transfers in Splunk).
-  * Inspected HTTP headers, URI paths, and form/body payloads using **Follow -> HTTP Stream**.
-* **Key Findings:**
-  * Confirmed compromised internal host **`192.168.1.103`** was actively transmitting sensitive data over cleartext HTTP.
-  * Extracted and inspected the HTTP request body to uncover the hidden exfiltrated data payload.
+#### Phase 1: SIEM Log Baselining & Anomaly Hunting (Splunk)
+* **Step 1 — Baseline HTTP Telemetry:** Queried all indexed web traffic (`index="data_exfil" sourcetype="http_logs"`) across *All Time* to establish baseline request volume.
+* **Step 2 — Isolate Outbound `POST` Uploads:** Narrowed results to upload-capable requests using `index="data_exfil" sourcetype="http_logs" method=POST`.
+* **Step 3 — Profile Outbound Byte Volume by Domain:** Calculated request frequency alongside average, minimum, and maximum payload sizes per destination domain to spot statistical outliers:
+  ```spl
+  index="data_exfil" sourcetype="http_logs" method=POST 
+  | stats count avg(bytes_sent) max(bytes_sent) min(bytes_sent) by domain 
+  | sort - count
+  ```
+* **Step 4 — Filter High-Byte Exfiltration Events:** Isolate large outbound uploads exceeding 600 bytes to pinpoint the exact source IP, destination domain/IP, URI, and timestamp:
+  ```spl
+  index="data_exfil" sourcetype="http_logs" method=POST bytes_sent > 600 
+  | table _time src_ip uri domain dst_ip bytes_sent 
+  | sort - bytes_sent
+  ```
+
+#### Phase 2: Packet-Level Correlation & Stream Reconstruction (Wireshark)
+* **Step 1 — Filter HTTP & `POST` Methods:** Opened `http_lab.pcap` and applied `http`, then narrowed to `http.request.method == "POST"` to separate outbound uploads from routine `GET` browsing.
+* **Step 2 — Progressive Frame-Length Reduction:** Filtered out small form submissions with `http.request.method == "POST" and frame.len > 500`, then tightened the threshold to `http.request.method == "POST" and frame.len > 750` to eliminate remaining noise and isolate the exact exfiltration frame seen in Splunk.
+* **Step 3 — Reconstruct HTTP Stream:** Used **Right-Click -> Follow -> HTTP Stream** on the isolated packet to inspect the raw request headers and extract the exfiltrated document payload.
+
+#### Key Findings
+* **Cross-Source Attribution:** Correlated the Splunk `bytes_sent > 600` outlier directly with the single `frame.len > 750` packet in `http_lab.pcap`, confirming compromised internal host **`192.168.1.103`** uploaded data to an external server.
+* **Payload Recovery:** Reconstructing the HTTP stream exposed the secret document contents transmitted in the `POST` body.
+
 
 <img width="1305" height="620" alt="image" src="https://github.com/user-attachments/assets/ccf011d6-d8a9-4b9f-93d4-59b259af0332" />
 <img width="1301" height="658" alt="image" src="https://github.com/user-attachments/assets/8938fa7e-2cc2-4516-9c9f-2c6e014defad" />
