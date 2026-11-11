@@ -57,6 +57,7 @@ Attackers encode stolen data into long, high-entropy subdomain labels and transm
 
 <img width="1311" height="671" alt="image" src="https://github.com/user-attachments/assets/29a9a416-3da7-4556-a16a-d1b5ebec3052" />
 <img width="1306" height="619" alt="image" src="https://github.com/user-attachments/assets/ea69ba65-a708-469e-9928-5ee4dfac51da" />
+<img width="1308" height="665" alt="image" src="https://github.com/user-attachments/assets/d4d9c525-5a3e-4630-9bd7-3c4fdfa9dbc6" />
 
 <img width="1309" height="674" alt="image" src="https://github.com/user-attachments/assets/afa755cc-7f36-4f89-92a4-f30456d0e730" />
 <img width="1302" height="669" alt="image" src="https://github.com/user-attachments/assets/37af5a64-e851-41ba-8ca5-d2cf8d41780e" />
@@ -67,17 +68,30 @@ Attackers encode stolen data into long, high-entropy subdomain labels and transm
 ---
 
 ### 2. Detection: Cleartext Data Exfiltration via FTP (`MITRE T1048.003`)
-Because File Transfer Protocol (FTP) transmits both authentication commands (`USER`, `PASS`) and file payloads (`STOR`, `RETR`) in cleartext over TCP ports 21 and 20, deep packet inspection reveals full session context and transferred file contents.
+Attackers frequently abuse File Transfer Protocol (FTP) to move large datasets out of a network using compromised credentials, misconfigured servers, or ephemeral accounts. Because FTP transmits both control commands and file payloads in cleartext over TCP ports 21 and 20, deep packet inspection of `ftp-lab.pcap` provides full visibility into authentication events, upload commands, and transferred files.
 
-* **Wireshark Analysis:**
-  * Filtered control and data channels using `ftp || ftp-data` and `ftp.request.command`.
-  * Used **Follow -> TCP Stream** on active sessions to audit authentication events and reconstruct transferred file payloads.
-* **Key Findings:**
-  * Observed **5 unauthorized FTP connections** initiated using the **`guest`** account.
-  * Audited privileged **`root`** account FTP activity and reconstructed the `ftp-data` stream to identify the exfiltrated customer-related file and embedded verification artifact.
+#### Investigation Methodology & Wireshark Filters
+* **Step 1 — Isolate FTP Control & Data Channels:** Applied `ftp || ftp-data` to filter out background noise and isolate active FTP control sessions alongside ephemeral `PASV` data transfers.
+* **Step 2 — Audit Cleartext Authentication (`USER` / `PASS`):** Filtered login attempts using `ftp.request.command == "USER" || ftp.request.command == "PASS"` to identify suspicious usernames, weak passwords, and unauthorized account logins.
+* **Step 3 — Hunt for File Upload Commands & Sensitive Extensions:** Isolated outbound file transfers using `ftp contains "STOR"` and targeted high-value file extensions using `ftp contains "csv"`.
+* **Step 4 — Inspect Large Frame Payloads:** Applied `ftp && frame.len > 90` to isolate oversized packets carrying substantial command arguments or embedded document payloads.
+* **Step 5 — Reconstruct Sessions via TCP Streams:** Used **Right-Click -> Follow -> TCP Stream** on flagged control and `ftp-data` packets to reassemble full session transcripts and inspect the exact contents of transferred files.
+
+#### Key Findings
+* **Unauthorized Account Activity:** Identified **5 unauthorized FTP connections** authenticated via the **`guest`** account alongside privileged activity from the **`root`** account.
+* **Sensitive File Exfiltration:** Confirmed an external IP connected via the `guest` account and exfiltrated sensitive `.csv` files (`STOR` commands), while oversized frames (`frame.len > 90`) revealed additional sensitive documents being staged and transferred out of the network.
+
 
 <!-- SCREENSHOT 3: Wireshark Follow TCP Stream showing FTP login sessions and exfiltrated file payload -->
-<img width="1366" height="600" alt="Wireshark FTP Control and Data Stream Reconstruction" src="PASTE_WIRESHARK_FTP_SCREENSHOT_URL_HERE" />
+<img width="1302" height="668" alt="image" src="https://github.com/user-attachments/assets/d14423b5-4424-44f2-9755-29c02f648e69" />
+<img width="1313" height="672" alt="image" src="https://github.com/user-attachments/assets/06c1327f-d074-4861-882c-8fa49832011c" />
+<img width="1302" height="669" alt="image" src="https://github.com/user-attachments/assets/484b1310-7d38-4580-9d45-2ca6578eb391" />
+<img width="1309" height="678" alt="image" src="https://github.com/user-attachments/assets/b3139c44-b3c1-4dd0-b175-2c02251d7957" />
+<img width="1308" height="666" alt="image" src="https://github.com/user-attachments/assets/cd2de491-9cf0-4be9-bf81-29fd4f6bccaa" />
+<img width="1310" height="673" alt="image" src="https://github.com/user-attachments/assets/b9770d47-7396-4043-92e6-466475177b70" />
+
+
+
 
 ---
 
@@ -91,8 +105,12 @@ Adversaries frequently disguise data theft as routine web traffic by embedding s
   * Confirmed compromised internal host **`192.168.1.103`** was actively transmitting sensitive data over cleartext HTTP.
   * Extracted and inspected the HTTP request body to uncover the hidden exfiltrated data payload.
 
-<!-- SCREENSHOT 4: Wireshark or Splunk view of outbound HTTP POST exfiltration from 192.168.1.103 -->
-<img width="1366" height="600" alt="HTTP POST Data Exfiltration Payload Inspection" src="PASTE_HTTP_EXFIL_SCREENSHOT_URL_HERE" />
+<img width="1305" height="620" alt="image" src="https://github.com/user-attachments/assets/ccf011d6-d8a9-4b9f-93d4-59b259af0332" />
+<img width="1301" height="658" alt="image" src="https://github.com/user-attachments/assets/8938fa7e-2cc2-4516-9c9f-2c6e014defad" />
+<img width="1310" height="628" alt="image" src="https://github.com/user-attachments/assets/f9b794ea-15b0-4390-95f9-fda688084cc0" />
+<img width="1310" height="597" alt="image" src="https://github.com/user-attachments/assets/9eda329d-0cf1-4f92-8485-8ac187ad4dac" />
+<img width="1312" height="650" alt="image" src="https://github.com/user-attachments/assets/1c5e7e3c-741b-43d1-8c00-c34b27c34979" />
+<img width="1287" height="632" alt="image" src="https://github.com/user-attachments/assets/a6fead0c-6ad7-4e1c-9e63-0b61934a89e6" />
 
 ---
 
