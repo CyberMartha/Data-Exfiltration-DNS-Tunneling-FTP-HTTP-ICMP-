@@ -134,17 +134,22 @@ Adversaries routinely abuse HTTP to exfiltrate data because web traffic blends i
 ---
 
 ### 4. Detection: Covert Exfiltration via ICMP Tunneling (`MITRE T1048.003`)
-Standard `ping` utilities generate ICMP Echo Request packets (`type 8`) with small, predictable OS padding. Attackers abuse the ICMP data field to smuggle arbitrary file chunks out of networks where outbound ICMP is left unrestricted.
+Internet Control Message Protocol (ICMP) is designed for network diagnostics and error reporting (such as `ping` Echo Requests and Replies). Because firewalls often permit outbound ICMP and inspect it less strictly than TCP or UDP, adversaries abuse the ICMP data field to smuggle encoded file chunks (Base64/Hex) out to a remote listener. To detect this covert channel, I analyzed `icmp_lab.pcap` in **Wireshark**.
 
-* **Wireshark Analysis:**
-  * Isolated outbound echo requests with abnormal payload sizes using `icmp.type == 8 && data.len > 64` (or `icmp && frame.len > 74`).
-  * Examined the **Data** layer in the packet bytes pane across sequential ICMP requests to extract ASCII/Hex strings hidden inside the ping payloads.
-* **Key Findings:**
-  * Detected anomalous, oversized ICMP Echo Request packets carrying custom data strings rather than standard diagnostic padding.
-  * Reconstructed the sequential ICMP payload chunks to confirm covert data exfiltration.
+#### Investigation Methodology & Wireshark Filters
+* **Step 1 — Isolate All ICMP Traffic:** Applied `icmp` to separate diagnostic and control packets from background network activity and establish baseline ICMP volume.
+* **Step 2 — Filter Outbound Echo Requests:** Narrowed the capture to outbound `ping` requests using `icmp.type == 8` to focus specifically on host-initiated traffic leaving the internal network.
+* **Step 3 — Isolate Oversized Packet Payloads:** Applied `icmp.type == 8 and frame.len > 100` to filter out standard diagnostic pings (which typically measure **~74 bytes** total) and flag packets carrying unusually large, non-standard payloads.
+* **Step 4 — Inspect Payload Bytes:** Examined the **Internet Control Message Protocol -> Data** section in the Packet Details and Packet Bytes panes across sequential requests to verify non-default ASCII/Hex strings.
 
-<!-- SCREENSHOT 5: Wireshark showing oversized ICMP Echo Request packets and custom payload bytes -->
-<img width="1366" height="600" alt="Wireshark ICMP Tunneling Oversized Echo Request Payload" src="PASTE_ICMP_EXFIL_SCREENSHOT_URL_HERE" />
+#### Key Findings
+* **Anomalous Frame Sizes:** Separated legitimate ~74-byte `ping` traffic from oversized `icmp.type == 8` packets exceeding **100 bytes**, confirming data smuggling inside the ICMP payload section.
+* **Covert Channel Verification:** Inspected the packet bytes pane of flagged Echo Requests to confirm the presence of structured, non-standard exfiltrated data rather than routine OS diagnostic padding.
+
+<img width="1304" height="665" alt="image" src="https://github.com/user-attachments/assets/f208bf49-5bd4-4a1b-8042-dacbfdb405cc" />
+<img width="1309" height="661" alt="image" src="https://github.com/user-attachments/assets/311fba62-7b9e-4655-9bc3-a4433530191d" />
+<img width="1308" height="667" alt="image" src="https://github.com/user-attachments/assets/00ff6df5-4f8d-477f-9744-33b84cf120af" />
+
 
 ---
 
