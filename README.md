@@ -18,10 +18,10 @@ The primary objective of this investigation was to detect, correlate, and recons
 
 | Tool / Framework | Role in Investigation | Reference |
 | :--- | :--- | :--- |
-| **Splunk (SIEM)** | Log ingestion (`dns_logs`), SPL statistical aggregation, and query-length anomaly filtering | [splunk.com](https://splunk.com) |
-| **Wireshark** | Packet capture analysis, conversation statistics, TCP stream reconstruction, and payload inspection | [wireshark.org](https://wireshark.org) |
+|     <img src="https://img.shields.io/badge/-Splunk-000000?&style=for-the-badge&logo=Splunk&logoColor=white" /> | Log ingestion (`dns_logs`), SPL statistical aggregation, and query-length anomaly filtering | [splunk.com](https://splunk.com) |
+|  <img src="https://img.shields.io/badge/-Wireshark-1679A7?&style=for-the-badge&logo=Wireshark&logoColor=white" /> | Packet capture analysis, conversation statistics, TCP stream reconstruction, and payload inspection | [wireshark.org](https://wireshark.org) |
 | **MITRE ATT&CK** | Adversary behavior classification (`TA0010` — Exfiltration Over Alternative Protocol) | [attack.mitre.org](https://mitre.org) |
-| **TryHackMe** | *SOC Level 1 — Network Security Monitoring: Data Exfiltration Detection* lab environment | [tryhackme.com](https://tryhackme.com/room/dataexfildetection) |
+| <img src="https://img.shields.io/badge/-TryHackMe-222831?&style=for-the-badge&logo=TryHackMe&logoColor=white" /> | *SOC Level 1 — Network Security Monitoring: Data Exfiltration Detection* lab environment | [tryhackme.com](https://tryhackme.com/room/dataexfildetection) |
 
 ---
 
